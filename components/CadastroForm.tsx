@@ -268,6 +268,25 @@ export function CadastroForm() {
           />
           <FormField
             control={form.control}
+            name="nome_gateway"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel className="dark:text-gray-300">
+                  Nome do Gateway
+                </FormLabel>
+                <FormControl>
+                  <Input
+                    placeholder="Nome do Gateway"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
             name="cnpj"
             render={({ field }) => (
               <FormItem>

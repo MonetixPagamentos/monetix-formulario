@@ -16,6 +16,7 @@ export const formSchema = z.object({
   nome_mae: z.string().min(1, "Nome da mãe é obrigatório"),
   razao_social: z.string().min(1, "Razão social é obrigatória"),
   nome_fantasia: z.string().min(1, "Nome fantasia é obrigatório"),
+  nome_gateway: z.string().min(1, "Nome do Gateway é obrigatório"),
   cnpj: z
     .string()
     .transform(unmask)
