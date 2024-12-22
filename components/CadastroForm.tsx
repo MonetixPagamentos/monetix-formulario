@@ -1,61 +1,116 @@
-"use client"
+"use client";
 
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { FormData, formSchema } from "../utils/formUtils"
-import { useFormState } from "../hooks/useFormState"
-import { Button } from "@/components/ui/button"
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"
-import { Input } from "@/components/ui/input"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { maskPhone, maskCPF, maskCNPJ, maskCEP } from "../utils/masks"
-import { useState } from "react"
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { FormData, formSchema } from "../utils/formUtils";
+import { useFormState } from "../hooks/useFormState";
+import { Button } from "@/components/ui/button";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { maskPhone, maskCPF, maskCNPJ, maskCEP } from "../utils/masks";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import cep from "cep-promise";
 
 export function CadastroForm() {
+  const router = useRouter();
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       tipo_conta: "Corrente",
     },
-  })
+  });
 
-  const { isLoading, error, onSubmit } = useFormState()
+  const { isLoading, error, onSubmit } = useFormState();
 
-  const [phoneValue, setPhoneValue] = useState("")
-  const [cpfValue, setCpfValue] = useState("")
-  const [cnpjValue, setCnpjValue] = useState("")
-  const [cepValue, setCepValue] = useState("")
+  const [phoneValue, setPhoneValue] = useState("");
+  const [cpfValue, setCpfValue] = useState("");
+  const [cnpjValue, setCnpjValue] = useState("");
+  const [cepValue, setCepValue] = useState("");
+  const [loadingCEP, setLoadingCEP] = useState(false);
+  const [ticketValue, setTicketValue] = useState("");
+
+  const handleTicketChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formattedValue = formatCurrency(e.target.value);
+    setTicketValue(formattedValue);
+    form.setValue("ticket_medio_mes", formattedValue); // Define o valor no formulário
+  };
+
+  const formatCurrency = (value: string): string => {
+    const numericValue = value.replace(/\D/g, "");
+    const formattedValue = new Intl.NumberFormat("pt-BR", {
+      style: "currency",
+      currency: "BRL",
+    }).format(parseFloat(numericValue) / 100);
+    return formattedValue;
+  };
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const maskedValue = maskPhone(e.target.value)
-    setPhoneValue(maskedValue)
-    form.setValue("telefone", maskedValue)
-  }
+    const maskedValue = maskPhone(e.target.value);
+    setPhoneValue(maskedValue);
+    form.setValue("telefone", maskedValue);
+  };
 
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const maskedValue = maskCPF(e.target.value)
-    setCpfValue(maskedValue)
-    form.setValue("cpf", maskedValue)
-  }
+    const maskedValue = maskCPF(e.target.value);
+    setCpfValue(maskedValue);
+    form.setValue("cpf", maskedValue);
+  };
 
   const handleCNPJChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const maskedValue = maskCNPJ(e.target.value)
-    setCnpjValue(maskedValue)
-    form.setValue("cnpj", maskedValue)
-  }
+    const maskedValue = maskCNPJ(e.target.value);
+    setCnpjValue(maskedValue);
+    form.setValue("cnpj", maskedValue);
+  };
 
-  const handleCEPChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const maskedValue = maskCEP(e.target.value)
-    setCepValue(maskedValue)
-    form.setValue("cep", maskedValue)
-  }
+  const handleCEPChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const maskedValue = maskCEP(e.target.value);
+    setCepValue(maskedValue);
+    form.setValue("cep", maskedValue);
+
+    if (maskedValue.length === 9) {
+      // Verifica se o CEP tem o formato completo (XXXXX-XXX)
+      setLoadingCEP(true);
+      try {
+        const cepData = await cep(maskedValue.replace("-", "")); // Remove a máscara para a consulta
+        form.setValue("rua", cepData.street || "");
+        form.setValue("bairro", cepData.neighborhood || "");
+        form.setValue("cidade", cepData.city || "");
+        form.setValue("estado", cepData.state || "");
+      } catch (err) {
+        console.error("Erro ao buscar o CEP:", err);
+        alert("CEP inválido ou não encontrado!");
+      } finally {
+        setLoadingCEP(false);
+      }
+    }
+  };
+
+  const handleSubmit = async (data: FormData) => {
+    try {
+      await onSubmit(data);
+      router.push("/obrigado");
+    } catch (error) {
+      console.error("Erro durante o envio:", error);
+    }
+  };
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
+      <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-8">
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold dark:text-white">Dados do Responsável</h2>
+          <h2 className="text-lg font-semibold dark:text-white">
+            Dados do Responsável
+          </h2>
           <FormField
             control={form.control}
             name="nome"
@@ -63,7 +118,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Nome</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome completo" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome completo"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -76,7 +135,12 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Email</FormLabel>
                 <FormControl>
-                  <Input type="email" placeholder="seu@email.com" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    type="email"
+                    placeholder="seu@email.com"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -125,9 +189,15 @@ export function CadastroForm() {
             name="dt_nasc"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Data de Nascimento</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Data de Nascimento
+                </FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    type="date"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -138,9 +208,15 @@ export function CadastroForm() {
             name="nome_mae"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Nome da Mãe</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Nome da Mãe
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome completo da mãe" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome completo da mãe"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -149,15 +225,23 @@ export function CadastroForm() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold dark:text-white">Dados da Empresa</h2>
+          <h2 className="text-lg font-semibold dark:text-white">
+            Dados da Empresa
+          </h2>
           <FormField
             control={form.control}
             name="razao_social"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Razão Social</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Razão Social
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Razão Social da empresa" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Razão Social da empresa"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -168,9 +252,15 @@ export function CadastroForm() {
             name="nome_fantasia"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Nome Fantasia</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Nome Fantasia
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome Fantasia da empresa" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome Fantasia da empresa"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -200,9 +290,15 @@ export function CadastroForm() {
             name="dt_abertura"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Data de Abertura</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Data de Abertura
+                </FormLabel>
                 <FormControl>
-                  <Input type="date" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    type="date"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -213,9 +309,17 @@ export function CadastroForm() {
             name="ticket_medio_mes"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Ticket Médio Mensal</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Ticket Médio Mensal
+                </FormLabel>
                 <FormControl>
-                  <Input type="number" placeholder="0.00" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    type="text" // Altere para "text" para evitar as setas
+                    placeholder="R$ 0,00"
+                    value={ticketValue}
+                    onChange={handleTicketChange}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -224,7 +328,9 @@ export function CadastroForm() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold dark:text-white">Dados de Endereço</h2>
+          <h2 className="text-lg font-semibold dark:text-white">
+            Dados de Endereço
+          </h2>
           <FormField
             control={form.control}
             name="cep"
@@ -251,7 +357,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Rua</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome da rua" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome da rua"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -264,7 +374,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Bairro</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome do bairro" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome do bairro"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -277,7 +391,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Cidade</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome da cidade" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome da cidade"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -290,7 +408,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Estado</FormLabel>
                 <FormControl>
-                  <Input placeholder="UF" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="UF"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -303,7 +425,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">País</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome do país" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome do país"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -314,9 +440,15 @@ export function CadastroForm() {
             name="complemento"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Complemento</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Complemento
+                </FormLabel>
                 <FormControl>
-                  <Input placeholder="Complemento (opcional)" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Complemento (opcional)"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -329,7 +461,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Número</FormLabel>
                 <FormControl>
-                  <Input placeholder="Número" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Número"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -338,7 +474,9 @@ export function CadastroForm() {
         </div>
 
         <div className="space-y-4">
-          <h2 className="text-lg font-semibold dark:text-white">Dados de Conta</h2>
+          <h2 className="text-lg font-semibold dark:text-white">
+            Dados de Conta
+          </h2>
           <FormField
             control={form.control}
             name="banco"
@@ -346,7 +484,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Banco</FormLabel>
                 <FormControl>
-                  <Input placeholder="Nome do banco" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Nome do banco"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -359,7 +501,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Agência</FormLabel>
                 <FormControl>
-                  <Input placeholder="Número da agência" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Número da agência"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -372,7 +518,11 @@ export function CadastroForm() {
               <FormItem>
                 <FormLabel className="dark:text-gray-300">Conta</FormLabel>
                 <FormControl>
-                  <Input placeholder="Número da conta" {...field} className="dark:bg-gray-800 dark:text-white dark:border-gray-600" />
+                  <Input
+                    placeholder="Número da conta"
+                    {...field}
+                    className="dark:bg-gray-800 dark:text-white dark:border-gray-600"
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -383,7 +533,9 @@ export function CadastroForm() {
             name="tipo_conta"
             render={({ field }) => (
               <FormItem>
-                <FormLabel className="dark:text-gray-300">Tipo de Conta</FormLabel>
+                <FormLabel className="dark:text-gray-300">
+                  Tipo de Conta
+                </FormLabel>
                 <FormControl>
                   <RadioGroup
                     onValueChange={field.onChange}
@@ -415,9 +567,9 @@ export function CadastroForm() {
         </div>
 
         {error && (
-          <Alert variant="destructive">
-            <AlertDescription>{error}</AlertDescription>
-          </Alert>
+          <div className="text-red-500">
+            <p>{error}</p>
+          </div>
         )}
 
         <Button type="submit" disabled={isLoading} className="w-full">
@@ -425,6 +577,5 @@ export function CadastroForm() {
         </Button>
       </form>
     </Form>
-  )
+  );
 }
-

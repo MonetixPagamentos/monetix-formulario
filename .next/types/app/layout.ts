@@ -1,4 +1,4 @@
-// File: C:\projetos\Monetix\monetix-form\app\layout.tsx
+// File: /Users/loandre/Documents/01. Dev/04. Monetix e Rastrac/Monetix/cadastro-cliente/monetix-formulario/app/layout.tsx
 import * as entry from '../../../app/layout.js'
 import type { ResolvingMetadata, ResolvingViewport } from 'next/dist/lib/metadata/types/metadata-interface.js'
 
